@@ -26,65 +26,18 @@ When this toolkit executes, it deploys two foundational layers within the target
 
 ---
 
-## ⚠️ CRITICAL REQUIREMENT: Bastion Host & Kubectl Availability
+## 📂 Repository Folder Layout
 
-> **IMPORTANT:** To execute the final cluster installation script (`4-install-nai.sh`), you must have access to an administrative **Bastion Host, Jumpbox, or Management Workstation** that has active `kubectl` and `helm` utilities installed. 
->
-> While a formal, dedicated "Bastion" server is not strictly required, the machine running the installation **MUST** have direct network line-of-sight to the Kubernetes API Server of your NKP cluster and be authenticated with a valid cluster context (`kubeconfig`).
+Before executing any phase of the deployment, verify that your administrative staging root folder matches the structural framework below. 
 
-### Tooling Breakdown by Machine Type
-
-#### Machine 1: The Internet Staging Machine (Runs Script #2)
-*Used in Dark Site workflows to pull public assets down from the internet.*
-* **Required Tools:** `docker` or `podman` (To pull and package multi-gigabyte container image layers), `helm` (To pull chart packages).
-* **Kubectl Required?** No. 
-* **Network Scope:** Public Internet Access.
-
-#### Machine 2: The Secure Dark Site Registry Host / Jumpbox (Runs Scripts #1 & #3)
-*The on-premises environment hosting your private container registry mirror (e.g., Harbor).*
-* **Required Tools:** `docker` or `podman` (To unpack and push image layers into the local mirror), `openssl` (To generate local TLS registry certificates).
-* **Kubectl Required?** No.
-* **Network Scope:** Local network access to the private registry web engine.
-
-#### Machine 3: The Cluster Deployment Machine / Bastion (Runs Script #4)
-*The workstation interacting directly with the active Kubernetes infrastructure.*
-* **Required Tools:** `kubectl` (Must be configured with a working `kubeconfig` context targeting the cluster), `helm` (To apply direct system upgrades to the cluster).
-* **Docker/Podman Required?** No.
-* **Network Scope:** **Mandatory network line-of-sight to the Kubernetes API Server of the NKP cluster.**
-
----
-
-## 📋 Infrastructure & Storage Prerequisites Checklist
-
-Before executing any cluster installation commands, verify that your backend Nutanix infrastructure meets the following baseline architectural criteria:
-
-### 1. Compute & Accelerators
-* **NVIDIA GPUs:** Your NKP worker node pools must be equipped with enterprise-grade NVIDIA GPUs (e.g., H100, A100, L40S, A16, or L4).
-* **NVIDIA GPU Operator:** Must be successfully deployed and validated via the NKP App Catalog. Run `kubectl get pods -n nvidia-gpu-operator` to ensure all GPU drivers and container runtimes are functional.
-
-### 2. Enterprise Storage Foundations
-NAI requires two distinct classes of high-performance storage mapped directly to your Nutanix cluster:
-* **ReadWriteOnce (RWO):** Backed by **Nutanix Volumes** (typically named `nutanix-volume`). Used for isolated state storage, metrics tracking databases, and operational metadata.
-* **ReadWriteMany (RWX):** Backed by **Nutanix Files** (e.g., `nai-nfs-storage`). **This is critical.** Large Language Models consist of massive multi-gigabyte shard files. This class allows multiple worker pods across different physical servers to read from the exact same cached model simultaneously.
-
-### 3. Native Platform Dependencies
-Ensure that the core NKP stack components are provisioned and active:
-* **Envoy Gateway:** Utilized for high-throughput AI gateway routing and traffic shaping.
-* **KServe & Knative:** Leveraged by NAI to orchestrate serverless, auto-scaling model inference frameworks.
-
----
-
-## 🚀 Step-by-Step "How-To" Implementation Guide
-
-### Option A: Internet-Connected Site Workflow (Fast Track)
-If your deployment machine has direct access to both the internet and the NKP cluster, skip the staging steps and execute the installation immediately from your `kubectl`-enabled workstation:
-
-```bash
-# 1. Enter the toolkit directory
-cd nai-toolkit
-
-# 2. Make the install script executable
-chmod +x 4-install-nai.sh
-
-# 3. Run the installer and select Option 1 when prompted
-./4-install-nai.sh
+```text
+📁 nai-toolkit/               # The Primary Installation Toolkit Directory
+├── 📁 .github/
+│   └── 📁 workflows/
+│       └── 📄 validate.yaml  # Automated shell validation configuration
+├── 📄 .gitignore             # File exclusion rules
+├── 📄 README.md              # Global administrative manual (This file)
+├── 📜 1-setup-certs.sh       # Dark Site Phase 1: TLS Certificate Automation
+├── 📜 2-download-assets.sh   # Dark Site Phase 2: Staging Mirror Downloader
+├── 📜 3-push-assets.sh       # Dark Site Phase 3: Local Mirror Registry Sync
+└── 📜 4-install-nai.sh       # Dark Site/Connected Phase 4: Active Installer
