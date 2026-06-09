@@ -1,0 +1,13 @@
+nai-certs/
+*.key
+*.crt
+*.csr
+*.cnf
+*.tar
+*.tar.gz
+nai-darksite-bundle/
+unpacked-nai/
+charts/
+values-operators.yaml
+values-core.yaml
+.DS_Store

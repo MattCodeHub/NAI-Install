@@ -1,0 +1,19 @@
+name: Validate NAI Toolkit
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  lint-scripts:
+    name: ShellCheck Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+        env:
+          SHELLCHECK_OPTS: -e SC2034 -e SC2162
