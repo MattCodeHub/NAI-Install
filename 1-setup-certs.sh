@@ -28,13 +28,13 @@ distinguished_name = req_distinguished_name
 req_extensions = v3_req
 prompt = no
 [req_distinguished_name]
-CN = \${REGISTRY_FQDN}
+CN = ${REGISTRY_FQDN}
 [v3_req]
 keyUsage = keyEncipherment, dataEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 [alt_names]
-DNS.1 = \${REGISTRY_FQDN}
+DNS.1 = ${REGISTRY_FQDN}
 EOF
 
 openssl req -new -key "${OUTPUT_DIR}/registry.key" -out "${OUTPUT_DIR}/registry.csr" -config "$CONF_FILE"

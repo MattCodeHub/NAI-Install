@@ -17,15 +17,6 @@ Nutanix Enterprise AI is an enterprise-grade AI inference platform designed to d
 
 ---
 
-## 🏗️ Architecture & Component Blueprint
-
-When this toolkit executes, it deploys two foundational layers within the target `nai-system` namespace:
-
-1.  **NAI Operators (`nai-operators`):** The orchestration brains of the platform. It installs custom resource controllers, an internal high-performance caching database (**Redis**), and a structured logging engine (**ClickHouse**).
-2.  **NAI Core Services (`nai-core`):** The functional layer. This deploys the **NAI Intelligent Execution Engine (IEP)**, model processors, the OpenAI-compliant API router, and the web-based graphical user interfaces for your end users.
-
----
-
 ## 📂 Repository Folder Layout
 
 Before executing any phase of the deployment, verify that your administrative staging root folder matches the structural framework below. 

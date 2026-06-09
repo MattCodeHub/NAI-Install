@@ -9,9 +9,58 @@ echo -e "${GREEN}===============================================================
 echo -e "${GREEN}   Phase 4: Execute Nutanix Enterprise AI (NAI) Installation     \${NC}"
 echo -e "${GREEN}=================================================================\${NC}"
 
+if ! command -v kubectl &> /dev/null; then
+    echo -e "\${RED}❌ CRITICAL REQUIREMENT MISSING: 'kubectl' is not installed on this Bastion Host.\${NC}"
+    echo -e "\${YELLOW}Kubectl is required to authenticate and interact with your NKP cluster.\${NC}"
+    read -r -p "Would you like to automatically download and install the latest stable kubectl? (y/n): " install_k
+    if [[ "\$install_k" =~ ^[Yy]\$ ]]; then
+        echo -e "\${YELLOW}Fetching latest stable kubectl binary...\${NC}"
+        K_VER=\$(curl -L -s https://dl.k8s.io/release/stable.txt)
+        
+        if curl --# -LO "https://dl.k8s.io/release/\${K_VER}/bin/linux/amd64/kubectl"; then
+            chmod +x ./kubectl
+            echo -e "\${YELLOW}Moving kubectl to /usr/local/bin (requires sudo)...\${NC}"
+            sudo mv ./kubectl /usr/local/bin/kubectl
+            echo -e "\${GREEN}✔ 'kubectl' (\${K_VER}) successfully installed!\${NC}\n"
+        else
+            echo -e "\${RED}❌ Failed to download kubectl. Please install it manually.\${NC}"
+            exit 1
+        fi
+    else
+        echo -e "\${RED}Installation aborted due to missing prerequisites.\${NC}"
+        exit 1
+    fi
+fi
+
+if ! command -v helm &> /dev/null; then
+    echo -e "\${RED}❌ CRITICAL REQUIREMENT MISSING: 'helm' is not installed on this Bastion Host.\${NC}"
+    echo -e "\${YELLOW}Helm v3 is required to unpack charts and manage NAI platform deployments.\${NC}"
+    read -r -p "Would you like to automatically download and install the latest stable helm? (y/n): " install_h
+    if [[ "\$install_h" =~ ^[Yy]\$ ]]; then
+        echo -e "\${YELLOW}Fetching helm installation script...\${NC}"
+        
+        if curl --# -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3; then
+            chmod +x get_helm.sh
+            echo -e "\${YELLOW}Running helm installer...\${NC}"
+            ./get_helm.sh > /dev/null 2>&1
+            rm -f get_helm.sh
+            echo -e "\${GREEN}✔ 'helm' successfully installed!\${NC}\n"
+        else
+            echo -e "\${RED}❌ Failed to download helm. Please install it manually.\${NC}"
+            exit 1
+        fi
+    else
+        echo -e "\${RED}Installation aborted due to missing prerequisites.\${NC}"
+        exit 1
+    fi
+fi
+
 CURRENT_CONTEXT=\$(kubectl config current-context 2>/dev/null)
-if [ -z "$CURRENT_CONTEXT" ]; then echo -e "${RED}Error: No active Kubernetes context.\${NC}"; exit 1; fi
-echo -e "${YELLOW}Target Cluster:\${NC} \${CURRENT_CONTEXT}"
+if [ -z "\$CURRENT_CONTEXT" ]; then 
+    echo -e "\${RED}❌ Error: No active Kubernetes context found. Ensure your KUBECONFIG is loaded.\${NC}"
+    exit 1
+fi
+echo -e "\${YELLOW}Target Cluster:\${NC} \${CURRENT_CONTEXT}"
 
 echo -e "\nSelect Installation Type:"
 echo "1) Internet-Connected Site"
@@ -29,7 +78,7 @@ NKP_NS=\${NKP_NS:-kommander-default-workspace}
 
 kubectl create namespace nai-system --dry-run=client -o yaml | kubectl apply -f -
 
-if [ "$DEPLOY_CHOICE" == "2" ]; then
+if [ "\$DEPLOY_CHOICE" == "2" ]; then
     read -r -p "Enter Internal Private Registry URL (e.g., registry.local): " REGISTRY_URL
     read -r -p "Path to Custom Root CA Certificate [./nai-certs/rootCA.crt]: " CA_PATH
     CA_PATH=\${CA_PATH:-./nai-certs/rootCA.crt}
@@ -40,21 +89,21 @@ if [ "$DEPLOY_CHOICE" == "2" ]; then
     
     cat <<EOF > values-operators.yaml
 imagePullSecret: { credentials: { registry: \${REGISTRY_URL} } }
-naiRedis: { naiRedisImage: { name: \${REGISTRY_URL}/nutanix/nai-redis } }
-naiJobs: { naiJobsImage: { image: \${REGISTRY_URL}/nutanix/nai-jobs } }
-nai-clickhouse-operator: { operator: { image: { registry: \${REGISTRY_URL}/nutanix } } }
+naiRedis: { naiRedisImage: { name: ${REGISTRY_URL}/nutanix/nai-redis } }
+naiJobs: { naiJobsImage: { image: ${REGISTRY_URL}/nutanix/nai-jobs } }
+nai-clickhouse-operator: { operator: { image: { registry: ${REGISTRY_URL}/nutanix } } }
 EOF
 
     cat <<EOF > values-core.yaml
-imagePullSecret: { credentials: { registry: \${REGISTRY_URL} } }
+imagePullSecret: { credentials: { registry: ${REGISTRY_URL} } }
 global:
-  nkpWorkspaceNamespace: \${NKP_NS}
-  storage: { rwxClassName: \${RWX_SC}, rwoClassName: \${RWO_SC} }
-naiApi: { storageClassName: \${RWX_SC} }
+  nkpWorkspaceNamespace: ${NKP_NS}
+  storage: { rwxClassName: ${RWX_SC}, rwoClassName: ${RWO_SC} }
+naiApi: { storageClassName: ${RWX_SC} }
 naiIepOperator:
-  iepOperatorImage: { image: \${REGISTRY_URL}/nutanix/nai-iep-operator }
-  modelProcessorImage: { image: \${REGISTRY_URL}/nutanix/nai-model-processor}
-naiInferenceUi: { naiUiImage: { image: \${REGISTRY_URL}/nutanix/nai-inference-ui } }
+  iepOperatorImage: { image: ${REGISTRY_URL}/nutanix/nai-iep-operator }
+  modelProcessorImage: { image: ${REGISTRY_URL}/nutanix/nai-model-processor}
+naiInferenceUi: { naiUiImage: { image: ${REGISTRY_URL}/nutanix/nai-inference-ui } }
 EOF
 else
     read -r -p "Enter Docker Hub / Nutanix Registry Username: " DOCKER_USER
@@ -65,29 +114,30 @@ else
     helm repo update ntnx-charts
     
     kubectl create secret docker-registry registry-image-pull-secret \
-      --docker-server=docker.io --docker-username="$DOCKER_USER" --docker-password="$DOCKER_PASS" \
+      --docker-server=docker.io --docker-username="\$DOCKER_USER" --docker-password="\$DOCKER_PASS" \
       -n nai-system --dry-run=client -o yaml | kubectl apply -f -
       
     CHART_OPTS_OPTS="ntnx-charts/nai-operators --version \${NAI_VERSION}"
-    CHART_CORE_OPTS="ntnx-charts/nai-core --version \${NAI_VERSION}"
+    CHART_CORE_OPTS="ntnx-charts/nai-core --version ${NAI_VERSION}"
     HELM_OPTS=""
     
     cat <<EOF > values-operators.yaml
-imagePullSecret: { credentials: { username: "${DOCKER_USER}", password: "${DOCKER_PASS}" } }
+imagePullSecret: { credentials: { username: "\$DOCKER_USER", password: "\$DOCKER_PASS" } }
 global: { imagePullSecrets: [ { name: registry-image-pull-secret } ] }
 EOF
 
     cat <<EOF > values-core.yaml
-imagePullSecret: { credentials: { username: "${DOCKER_USER}", password: "${DOCKER_PASS}" } }
+imagePullSecret: { credentials: { username: "\$DOCKER_USER", password: "\$DOCKER_PASS" } }
 global:
-  nkpWorkspaceNamespace: \${NKP_NS}
-  storage: { rwxClassName: \${RWX_SC}, rwoClassName: \${RWO_SC} }
-naiApi: { storageClassName: \${RWX_SC} }
+  nkpWorkspaceNamespace: ${NKP_NS}
+  storage: { rwxClassName: ${RWX_SC}, rwoClassName: ${RWO_SC} }
+naiApi: { storageClassName: ${RWX_SC} }
 EOF
 fi
 
-helm upgrade --install nai-operators \${CHART_OPTS_OPTS} -n nai-system --wait -f values-operators.yaml \${HELM_OPTS} --insecure-skip-tls-verify
-helm upgrade --install nai-core \${CHART_CORE_OPTS} -n nai-system --wait -f values-core.yaml \${HELM_OPTS} --insecure-skip-tls-verify
+echo -e "\${YELLOW}Applying Helm updates to cluster nodes...\${NC}"
+helm upgrade --install nai-operators \${CHART_OPTS_OPTS} -n nai-system --wait -f values-operators.yaml ${HELM_OPTS} --insecure-skip-tls-verify
+helm upgrade --install nai-core ${CHART_CORE_OPTS} -n nai-system --wait -f values-core.yaml ${HELM_OPTS} --insecure-skip-tls-verify
 
 rm -f values-operators.yaml values-core.yaml
 echo -e "\n\${GREEN}✔ NAI Platform Up and Initialized on NKP!\${NC}"
